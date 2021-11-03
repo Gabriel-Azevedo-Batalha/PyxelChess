@@ -11,12 +11,21 @@ class Piece():
         self.y = y
         self.highlighted = False
         self.moved = False
-        
+
+    def path(self):
+        moveset = []
+        for j in range(8):
+            line = []
+            for i in range(8):
+               line.append(False)
+            moveset.append(line)
+        return moveset
 
     def draw(self):
         pyxel.load("assets.pyxres")
         color = -1 if self.highlighted else pyxel.COLOR_YELLOW
         pyxel.blt(self.x, self.y, 0, self.v, self.u, 8, 12, color)
+    
 class Pawn(Piece):
     def __init__(self, x, y, white):
         super().__init__(x, y, white)
@@ -26,12 +35,7 @@ class Pawn(Piece):
     def path(self, x, y, allyPieces, enemyPieces):
         # Init
         m = -1 if self.v == 0 else 1
-        moveset = []
-        for j in range(8):
-            line = []
-            for i in range(8):
-               line.append(False)
-            moveset.append(line)
+        moveset = super().path()
         # First Move
         if not self.moved:
             moveset[y+m][x] = True
@@ -52,12 +56,12 @@ class Pawn(Piece):
                 # Block Move
                 if x2 == x:
                     moveset[y2][x2] = False
-            # Special Move
+            # Passant
             if (isinstance(piece, Pawn) and 
             piece.justMoved and y2 == y and (x2 == x+1 or x2 == x-1)):
                 print("That's it!")
                 moveset[y+m][x2] = ((x2, y+m), piece) 
-
+        # Ally Collision
         for piece in allyPieces:
             x2, y2 = utils.coordToBoard(piece.x, piece.y)
             # Block first move
@@ -77,6 +81,52 @@ class Rook(Piece):
         self.u = 12
     def draw(self):
         super().draw()
+    def path(self, x, y, allyPieces, enemyPieces):
+        moveset = super().path()
+
+        d = y
+        u = y
+        l = x
+        r = x
+        while(d < 7 or u > 0 or l > 0 or r < 7):
+            d += 1
+            u -= 1
+            l -= 1
+            r += 1
+            for piece in enemyPieces:
+                x2, y2 = utils.coordToBoard(piece.x, piece.y)
+                if x2 == x and d == y2:
+                    moveset[d][x] = piece
+                    d = 8
+                if x2 == x and u == y2:
+                    moveset[u][x] = piece
+                    u = -1
+                if x2 == l and y == y2:
+                    moveset[y][l] = piece
+                    l = -1
+                if x2 == r and y == y2:
+                    moveset[y][r] = piece
+                    r = 8
+            for piece in allyPieces:
+                x2, y2 = utils.coordToBoard(piece.x, piece.y)
+                if x2 == x and d == y2:
+                    d = 8
+                if x2 == x and u == y2:
+                    u = -1
+                if x2 == l and y == y2:
+                    l = -1
+                if x2 == r and y == y2:
+                    r = 8
+            if d < 8:
+                moveset[d][x] = True
+            if u >= 0:
+                moveset[u][x] = True
+            if r < 8:
+                moveset[y][r] = True
+            if l >= 0:
+                moveset[y][l] = True
+       
+        return moveset
 
 class Horse(Piece):
     def __init__(self, x, y, white):

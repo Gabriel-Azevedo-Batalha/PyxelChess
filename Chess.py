@@ -45,14 +45,18 @@ def update():
                         blacks.remove(moveset[y][x])
                     else:
                         whites.remove(moveset[y][x])
-                # Pawn Special Move
+                # Passant
                 elif isinstance(moveset[y][x], Tuple):
                     if turnW:
                         blacks.remove(moveset[y][x][1])
                     else:
                         whites.remove(moveset[y][x][1])
+                # Pawn Moving
                 if isinstance(unit, Pieces.Pawn):
                     x2, y2 = utils.coordToBoard(unit.x,unit.y)
+                    # Promotion
+                    """ if y2 == 0 or y2 == 7:
+                        PromotionSelector """
                     if abs(y-y2) == 2:
                         unit.justMoved = True
                     elif unit.justMoved:
@@ -76,7 +80,7 @@ def update():
                     unit.highlighted = not unit.highlighted
                     unit = tmp
                     unit.highlighted = not unit.highlighted
-                    moveset = unit.path(*utils.coordToBoard(unit.x, unit.y))
+                    moveset = unit.path(*utils.coordToBoard(unit.x, unit.y), whites if turnW else blacks, whites if not turnW else blacks)
         # There is not
         else:
             unit = utils.mousePos(whites) if turnW else utils.mousePos(blacks)
@@ -100,7 +104,7 @@ def draw():
         for j in range(8):
             color = pyxel.COLOR_BROWN if toggle else pyxel.COLOR_PEACH
             toggle = not toggle
-            if moveset != None and isinstance(moveset[j][i], Pieces.Pawn):
+            if moveset != None and isinstance(moveset[j][i], Pieces.Piece):
                 color = pyxel.COLOR_RED
             if moveset != None and isinstance(moveset[j][i], Tuple):
                 moves.append(moveset[j][i])
@@ -110,7 +114,7 @@ def draw():
                 pyxel.rect(x+1, y+3, 6, 6, pyxel.COLOR_RED)
         toggle = not toggle
 
-    # Special Move
+    # Special Moves
     if moves != []:
         for m in moves:
             x, y = utils.boardToCoord(*m[0])
