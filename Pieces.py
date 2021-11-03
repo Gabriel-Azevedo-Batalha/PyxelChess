@@ -149,7 +149,7 @@ class Bishop(Piece):
         self.u = 36
     def draw(self):
         super().draw()
-
+    
     def path(self, x, y, allyPieces, enemyPieces):
         moveset = super().path()
 
@@ -200,6 +200,7 @@ class Bishop(Piece):
        
         return moveset
 
+    
 class King(Piece):
     def __init__(self, x, y, white):
         super().__init__(x, y, white)
@@ -211,5 +212,84 @@ class Queen(Piece):
     def __init__(self, x, y, white):
         super().__init__(x, y, white)
         self.u = 60
+
     def draw(self):
         super().draw()
+
+    def path(self, x, y, allyPieces, enemyPieces):
+        moveset = super().path()
+
+        d = y
+        u = y
+        l = x
+        r = x
+        flags = [False, False, False, False, False, False, False, False]
+        while(d < 7 or u > 0 or l > 0 or r < 7):
+            d += 1
+            u -= 1
+            l -= 1
+            r += 1
+            for piece in enemyPieces:
+                x2, y2 = utils.coordToBoard(piece.x, piece.y)
+                if x2 == r and d == y2 and not flags[0]:
+                    moveset[d][r] = piece
+                    flags[0] = True
+                if x2 == l and d == y2 and not flags[1]:
+                    moveset[d][l] = piece
+                    flags[1] = True
+                if x2 == r and u == y2 and not flags[2]:
+                    moveset[u][r] = piece
+                    flags[2] = True
+                if x2 == l and u == y2 and not flags[3]:
+                    moveset[u][l] = piece
+                    flags[3] = True
+                if x2 == x and d == y2 and not flags[4]:
+                    moveset[d][x] = piece
+                    flags[4] = True
+                if x2 == x and u == y2 and not flags[5]:
+                    moveset[u][x] = piece
+                    flags[5] = True
+                if x2 == r and y == y2 and not flags[6]:
+                    moveset[y][r] = piece
+                    flags[6] = True
+                if x2 == l and y == y2 and not flags[7]:
+                    moveset[y][l] = piece
+                    flags[7] = True
+            for piece in allyPieces:
+                x2, y2 = utils.coordToBoard(piece.x, piece.y)
+                if x2 == r and d == y2 and not flags[0]:
+                    flags[0] = True
+                if x2 == l and d == y2 and not flags[1]:
+                    flags[1] = True
+                if x2 == r and u == y2 and not flags[2]:
+                    flags[2] = True
+                if x2 == l and u == y2 and not flags[3]:
+                    flags[3] = True
+                if x2 == x and d == y2 and not flags[4]:
+                    flags[4] = True
+                if x2 == x and u == y2 and not flags[5]:
+                    flags[5] = True
+                if x2 == r and y == y2 and not flags[6]:
+                    flags[6] = True
+                if x2 == l and y == y2 and not flags[7]:
+                    flags[7] = True
+            if d < 8 and r < 8 and not flags[0]:
+                moveset[d][r] = True
+            if d < 8 and l >= 0 and not flags[1]:
+                moveset[d][l] = True
+            if u >= 0 and r < 8 and not flags[2]:
+                moveset[u][r] = True
+            if u >= 0 and l >= 0 and not flags[3]:
+                moveset[u][l] = True
+            if d < 8 and not flags[4]:
+                moveset[d][x] = True
+            if u >= 0 and not flags[5]:
+                moveset[u][x] = True
+            if r < 8 and not flags[6]:
+                moveset[y][r] = True
+            if l >= 0 and not flags[7]:
+                moveset[y][l] = True
+            if not False in flags:
+                break
+       
+        return moveset
