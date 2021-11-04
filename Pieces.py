@@ -1,6 +1,10 @@
 import pyxel
 import utils
 
+"""
+Pieces Paths needs refactoration!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+"""
+
 class Piece():
     def __init__(self, x, y, white):
         if white:
@@ -139,7 +143,96 @@ class Horse(Piece):
     def path(self, x, y, allyPieces, enemyPieces):
         moveset = super().path()
 
+        if y > 0:
+            if y > 1:
+                if x > 0:
+                    moveset[y-2][x-1] = True
+                if x < 7:
+                    moveset[y-2][x+1] = True
+            if x > 1:
+                moveset[y-1][x-2] = True
+            if x < 6:
+                 moveset[y-1][x+2] = True
+        if y < 7:
+            if y < 6:
+                if x > 0:
+                    moveset[y+2][x-1] = True
+                if x < 7:
+                    moveset[y+2][x+1] = True
+            if x > 1:
+                moveset[y+1][x-2] = True
+            if x < 6:
+                 moveset[y+1][x+2] = True
 
+        for piece in enemyPieces:
+            x2, y2 = utils.coordToBoard(piece.x, piece.y)
+            # Up
+            if y2 == y-2:
+                # Left
+                if x2 == x-1:
+                    moveset[y-2][x-1] = piece
+                # Right
+                if x2 == x+1:
+                     moveset[y-2][x+1] = piece
+            # Down 
+            if y2 == y+2:
+                # Left
+                if x2 == x-1:
+                    moveset[y+2][x-1] = piece
+                #  Right
+                if x2 == x+1:
+                     moveset[y+2][x+1] = piece
+            # Left 
+            if x2 == x-2:
+                # Up
+                if y2 == y-1:
+                    moveset[y-1][x-2] = piece
+                # Down
+                if y2 == y+1:
+                    moveset[y+1][x-2] = piece
+            # Right 
+            if x2 == x+2:
+                # Up
+                if y2 == y-1:
+                    moveset[y-1][x+2] = piece
+                # Down
+                if y2 == y+1:
+                    moveset[y+1][x+2] = piece
+
+        for piece in allyPieces:
+            x2, y2 = utils.coordToBoard(piece.x, piece.y)
+            # Up
+            if y2 == y-2:
+                # Left
+                if x2 == x-1:
+                    moveset[y-2][x-1] = False
+                # Right
+                if x2 == x+1:
+                     moveset[y-2][x+1] = False
+            # Down 
+            if y2 == y+2:
+                # Left
+                if x2 == x-1:
+                    moveset[y+2][x-1] = False
+                #  Right
+                if x2 == x+1:
+                     moveset[y+2][x+1] = False
+            # Left 
+            if x2 == x-2:
+                # Up
+                if y2 == y-1:
+                    moveset[y-1][x-2] = False
+                # Down
+                if y2 == y+1:
+                    moveset[y+1][x-2] = False
+            # Right 
+            if x2 == x+2:
+                # Up
+                if y2 == y-1:
+                    moveset[y-1][x+2] = False
+                # Down
+                if y2 == y+1:
+                    moveset[y+1][x+2] = False
 
         return moveset
 
