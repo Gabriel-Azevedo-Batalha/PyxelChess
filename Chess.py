@@ -87,7 +87,6 @@ def update():
             if unit != None:
                 unit.highlighted = not unit.highlighted
                 moveset = unit.path(*utils.coordToBoard(unit.x, unit.y), whites if turnW else blacks, whites if not turnW else blacks)
-            
     return
 # Draw
 def draw():
