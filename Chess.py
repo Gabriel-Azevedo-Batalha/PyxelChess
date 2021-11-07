@@ -25,6 +25,7 @@ for i in range(8):
 turnW = True
 moveset = None
 unit = None
+passantU = None
 
 
 # Update
@@ -33,24 +34,25 @@ def update():
         global unit
         global turnW
         global moveset
+        global passantU
 
         # There is a piece selected
         if unit != None:
             x, y = utils.coordToBoard(pyxel.mouse_x, pyxel.mouse_y)
             # Valid Move
-            if moveset[y][x] != False:
+            if moveset[y][x] != False and moveset[y][x]["type"] != "Defend":
                 # Capture
-                if isinstance(moveset[y][x], Pieces.Piece):
+                if moveset[y][x]["type"] == "Capture":
                     if turnW:
-                        blacks.remove(moveset[y][x])
+                        blacks.remove(moveset[y][x]["target"])
                     else:
-                        whites.remove(moveset[y][x])
+                        whites.remove(moveset[y][x]["target"])
                 # Passant
-                elif isinstance(moveset[y][x], Tuple):
+                elif moveset[y][x]["type"] == "Passant":
                     if turnW:
-                        blacks.remove(moveset[y][x][1])
+                        blacks.remove(moveset[y][x]["target"])
                     else:
-                        whites.remove(moveset[y][x][1])
+                        whites.remove(moveset[y][x]["target"])
                 # Pawn Moving
                 if isinstance(unit, Pieces.Pawn):
                     x2, y2 = utils.coordToBoard(unit.x,unit.y)
@@ -59,8 +61,9 @@ def update():
                         PromotionSelector """
                     if abs(y-y2) == 2:
                         unit.justMoved = True
-                    elif unit.justMoved:
-                        unit.justMoved = False
+                        passantU = unit
+                    elif passantU != None and passantU.justMoved:
+                        passantU.justMoved = False
                 unit.x, unit.y = utils.boardToCoord(x, y)
                 unit.highlighted = not unit.highlighted
                 turnW = not turnW
@@ -81,13 +84,16 @@ def update():
                     unit = tmp
                     unit.highlighted = not unit.highlighted
                     moveset = unit.path(*utils.coordToBoard(unit.x, unit.y), whites if turnW else blacks, whites if not turnW else blacks)
+                    if isinstance(unit, Pieces.King):
+                        moveset = unit.forbid(moveset, whites if turnW else blacks, whites if not turnW else blacks)
         # There is not
         else:
             unit = utils.mousePos(whites) if turnW else utils.mousePos(blacks)
             if unit != None:
                 unit.highlighted = not unit.highlighted
                 moveset = unit.path(*utils.coordToBoard(unit.x, unit.y), whites if turnW else blacks, whites if not turnW else blacks)
-    return
+                if isinstance(unit, Pieces.King):
+                    moveset = unit.forbid(moveset, whites if turnW else blacks, whites if not turnW else blacks)
 # Draw
 def draw():
 
@@ -103,12 +109,12 @@ def draw():
         for j in range(8):
             color = pyxel.COLOR_BROWN if toggle else pyxel.COLOR_PEACH
             toggle = not toggle
-            if moveset != None and isinstance(moveset[j][i], Pieces.Piece):
+            if moveset != None and moveset[j][i] != False and moveset[j][i]["type"] == "Capture":
                 color = pyxel.COLOR_RED
-            if moveset != None and isinstance(moveset[j][i], Tuple):
+            if moveset != None and moveset[j][i] != False and moveset[j][i]["type"] == "Passant":
                 moves.append(moveset[j][i])
             pyxel.rect(i*TILESIZE+OFFSET, j*TILESIZE+OFFSET, TILESIZE, TILESIZE, color)
-            if moveset != None and moveset[j][i] == True:
+            if moveset != None and moveset[j][i] != False and "Move" in moveset[j][i]["type"]:
                 x, y = utils.boardToCoord(i, j)
                 pyxel.rect(x+1, y+3, 6, 6, pyxel.COLOR_RED)
         toggle = not toggle
@@ -116,7 +122,7 @@ def draw():
     # Special Moves
     if moves != []:
         for m in moves:
-            x, y = utils.boardToCoord(*m[0])
+            x, y = utils.boardToCoord(*m["pos"])
             pyxel.rect(x+1, y+3, 6, 6, pyxel.COLOR_RED)
 
     # Pieces
