@@ -92,16 +92,18 @@ class Piece():
                 break
 
             distance += 1
+
         return moveset
 
-    def moves(self, moveset):
+    def moves(self, moveset, filter = []):
         moves = []
+        x, y = utils.coordToBoard(self.x, self.y)
         for row in moveset:
             for column in row:
-                if column != False and column["type"] != "PMove":
-                    moves.append(column)
-        x, y = utils.coordToBoard(self.x, self.y)
-        if isinstance(self, Pawn) and y > 0 and y < 7:
+                if column != False and column["type"] not in filter:
+                    moves.append(column)           
+        
+        if isinstance(self, Pawn) and y > 0 and y < 7 and "CMove" not in filter:
                 m = -1 if self.v == 0 else 1
                 if x > 0:
                     moves.append({"type": "Move", "pos": (x-1, y+m)})
@@ -172,7 +174,7 @@ class King(Piece):
 
         for piece in enemyPieces:
             x, y = utils.coordToBoard(piece.x, piece.y)
-            toAdd = piece.moves(piece.path(x, y, enemyPieces, allyPieces))
+            toAdd = piece.moves(piece.path(x, y, enemyPieces, allyPieces), ["PMove"])
             for a in toAdd:
                     forbidden.append(a)
         for f in forbidden:

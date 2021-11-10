@@ -1,5 +1,6 @@
 from typing import Tuple
 import pyxel
+from copy import deepcopy
 
 import Pieces
 import utils
@@ -27,6 +28,24 @@ moveset = None
 unit = None
 passantU = None
 
+wKing = whites[9]
+bKing = blacks[9]
+
+check = False
+poss = None
+
+def checkCheck(enemyPieces, allyPieces):
+    check = False
+    danger = []
+    for piece in enemyPieces:
+        x2, y2 = utils.coordToBoard(piece.x, piece.y)
+        toAdd = piece.moves(piece.path(x2, y2, enemyPieces, allyPieces), ["Defend", "Move", "CMove", "PMove"])
+        for a in toAdd:
+            if isinstance(a["target"], Pieces.King):
+                check = True
+                danger.append(a)
+    return check, danger
+
 
 # Update
 def update():
@@ -35,12 +54,22 @@ def update():
         global turnW
         global moveset
         global passantU
+        global check
+        global poss
 
         # There is a piece selected
-        if unit != None:
+        if (unit != None and not check) or (check and poss.get(unit) != None):
             x, y = utils.coordToBoard(pyxel.mouse_x, pyxel.mouse_y)
+            flag = False
+            if check:
+                for move in poss[unit]:
+                    x2, y2 = move["pos"]
+                    if x == x2 and y == y2:
+                        flag = True
+                        break
             # Valid Move
-            if moveset[y][x] != False and moveset[y][x]["type"] != "Defend":
+            if ((moveset[y][x] != False and moveset[y][x]["type"] != "Defend" and not check)
+                or (check and flag)):
                 # Capture
                 if moveset[y][x]["type"] == "Capture":
                     if turnW:
@@ -70,6 +99,46 @@ def update():
                 unit.moved = True
                 unit = None
                 moveset = None
+
+                # Check
+                check, danger = checkCheck(whites if not turnW else blacks, whites if turnW else blacks)
+
+                # Checkmate
+                if check:
+                    ally = deepcopy(whites) if turnW else deepcopy(blacks)
+                    enemy = deepcopy(whites) if not turnW else deepcopy(blacks)
+                    poss = {}
+                    for piece in ally:
+                        possibles = []
+                        x2, y2 = utils.coordToBoard(piece.x, piece.y)
+                        toAdd = piece.moves(piece.path(x2, y2, ally, enemy), ["Defend", "CMove"])
+                        for a in toAdd:
+                            possibles.append(a)
+                        for p in possibles:
+                            xi, yi = utils.coordToBoard(piece.x, piece.y)
+                            piece.x, piece.y = utils.boardToCoord(*p["pos"])
+                            if p["type"] == "Capture":
+                                t = enemy.index(p["target"])
+                                tEnemy = enemy[:t] + enemy[t+1:]
+                                flag, _ = checkCheck(tEnemy, ally)
+                            else:
+                                flag, _ = checkCheck(enemy, ally)
+                            if not flag:
+                                pieceToAdd = whites[ally.index(piece)] if turnW else blacks[ally.index(piece)]
+                                if poss.get(pieceToAdd) == None:
+                                    poss[pieceToAdd] = [p]
+                                else:
+                                    poss[pieceToAdd].append(p)
+
+                            piece.x, piece.y = utils.boardToCoord(xi, yi)
+
+                    if len(poss) > 0:
+                        print("Check")
+                    else:
+                        print("Checkmate!")
+                        print("Black Won!" if turnW else "White Won!")
+                        raise SystemExit
+                
             # Not a Valid Move
             else:
                 tmp = utils.mousePos(whites) if turnW else utils.mousePos(blacks)
@@ -79,7 +148,7 @@ def update():
                     unit = None
                     moveset = None
                 # Another piece selected
-                elif tmp != None:
+                elif (tmp != None and not check) or (check and poss.get(tmp) != None):
                     unit.highlighted = not unit.highlighted
                     unit = tmp
                     unit.highlighted = not unit.highlighted
@@ -89,14 +158,13 @@ def update():
         # There is not
         else:
             unit = utils.mousePos(whites) if turnW else utils.mousePos(blacks)
-            if unit != None:
+            if (unit != None and not check) or (check and poss.get(unit) != None):
                 unit.highlighted = not unit.highlighted
                 moveset = unit.path(*utils.coordToBoard(unit.x, unit.y), whites if turnW else blacks, whites if not turnW else blacks)
                 if isinstance(unit, Pieces.King):
                     moveset = unit.forbid(moveset, whites if turnW else blacks, whites if not turnW else blacks)
 # Draw
 def draw():
-
     # Clear Screen
     pyxel.cls(0)
     
@@ -109,12 +177,13 @@ def draw():
         for j in range(8):
             color = pyxel.COLOR_BROWN if toggle else pyxel.COLOR_PEACH
             toggle = not toggle
-            if moveset != None and moveset[j][i] != False and moveset[j][i]["type"] == "Capture":
-                color = pyxel.COLOR_RED
-            if moveset != None and moveset[j][i] != False and moveset[j][i]["type"] == "Passant":
-                moves.append(moveset[j][i])
+            if not check:
+                if moveset != None and moveset[j][i] != False and moveset[j][i]["type"] == "Capture":
+                    color = pyxel.COLOR_RED
+                if moveset != None and moveset[j][i] != False and moveset[j][i]["type"] == "Passant":
+                    moves.append(moveset[j][i])
             pyxel.rect(i*TILESIZE+OFFSET, j*TILESIZE+OFFSET, TILESIZE, TILESIZE, color)
-            if moveset != None and moveset[j][i] != False and "Move" in moveset[j][i]["type"]:
+            if moveset != None and moveset[j][i] != False and "Move" in moveset[j][i]["type"] and not check:
                 x, y = utils.boardToCoord(i, j)
                 pyxel.rect(x+1, y+3, 6, 6, pyxel.COLOR_RED)
         toggle = not toggle
@@ -124,6 +193,18 @@ def draw():
         for m in moves:
             x, y = utils.boardToCoord(*m["pos"])
             pyxel.rect(x+1, y+3, 6, 6, pyxel.COLOR_RED)
+
+    if check:
+        for piece in poss:
+            i, j =  utils.coordToBoard(piece.x, piece.y)
+            pyxel.rect(i*TILESIZE+OFFSET+1, j*TILESIZE+OFFSET+1, TILESIZE-2, TILESIZE-2, pyxel.COLOR_CYAN)
+        if poss.get(unit) != None:
+                for move in poss[unit]:
+                    x, y = utils.boardToCoord(*move["pos"])
+                    if move["type"] != "Capture":
+                        pyxel.rect(x+1, y+3, 6, 6, pyxel.COLOR_CYAN)
+                    else:
+                        pyxel.rect(x-3, y-1, TILESIZE, TILESIZE, pyxel.COLOR_DARKBLUE)
 
     # Pieces
     for piece in whites:
