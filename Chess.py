@@ -31,6 +31,9 @@ state = "Chess"
 check = False
 poss = None
 
+# Macro
+turnPieces = lambda inv: whites if (turnW and not inv) or (not turnW and inv) else blacks
+
 def checkCheck(enemyPieces, allyPieces):
     check = False
     danger = []
@@ -41,20 +44,116 @@ def checkCheck(enemyPieces, allyPieces):
             if isinstance(a["target"], Pieces.King):
                 check = True
                 danger.append(a)
-    return check, danger
+    return check
 
+def castling(king, moveset, allyPieces, enemyPieces):
+        def rookLogic(rook, const):
+            flag = False
+            backupX, backupY = king.x, king.y
+            for i in range(2):
+                king.x += const*TILESIZE
+                flag = checkCheck(enemyPieces, allyPieces)
+                if flag:
+                    break
+            king.x, king.y = backupX, backupY
+            if not flag:
+                x, y = utils.coordToBoard(king.x, king.y)
+                moveset[y][x+2*const] = {"type": "Castling", "Rook": rook, "RookTarget" : (x+const, y),
+                                    "King": king, "KingTarget" : (x+2*const, y)}
+        if not king.moved:
+            lRook, rRook = None, None
+            for piece in allyPieces:
+                if isinstance(piece, Pieces.Rook) and not piece.moved:
+                    if piece.x < king.x:
+                        lRook = piece
+                    else:
+                        rRook = piece
+            if lRook != None:
+                rookLogic(lRook, -1)
+            if rRook != None:
+                rookLogic(rRook, 1)
+        return moveset
+
+def checkCheckmate():
+    global poss
+    ally = deepcopy(whites) if turnW else deepcopy(blacks)
+    enemy = deepcopy(whites) if not turnW else deepcopy(blacks)
+    poss = {}
+    for piece in ally:
+        possibles = []
+        x2, y2 = utils.coordToBoard(piece.x, piece.y)
+        toAdd = piece.moves(piece.path(x2, y2, ally, enemy), ["Defend", "CMove"])
+        for a in toAdd:
+            possibles.append(a)
+        for p in possibles:
+            xi, yi = utils.coordToBoard(piece.x, piece.y)
+            piece.x, piece.y = utils.boardToCoord(*p["pos"])
+            if p["type"] == "Capture":
+                t = enemy.index(p["target"])
+                tEnemy = enemy[:t] + enemy[t+1:]
+                flag = checkCheck(tEnemy, ally)
+            else:
+                flag = checkCheck(enemy, ally)
+            if not flag:
+                pieceToAdd = whites[ally.index(piece)] if turnW else blacks[ally.index(piece)]
+                if poss.get(pieceToAdd) == None:
+                    poss[pieceToAdd] = [p]
+                else:
+                    poss[pieceToAdd].append(p)
+
+            piece.x, piece.y = utils.boardToCoord(xi, yi)
+
+    if len(poss) > 0:
+        print("Check")
+    else:
+        print("Checkmate!")
+        print("Black Won!" if turnW else "White Won!")
+        raise SystemExit
+
+def validateMoves(moves):
+    if isinstance(unit, Pieces.King):
+        out = castling(unit, unit.forbid(moves, turnPieces(False), turnPieces(True)), turnPieces(False), turnPieces(True))
+    else:
+        out = []
+        for row in moves:
+            toAdd = []
+            for m in row:
+                if not m:
+                    toAdd.append(False)
+                    continue
+                enemy = whites if not turnW else blacks
+                backup = unit.x, unit.y
+                unit.x, unit.y = utils.boardToCoord(*m["pos"])
+                if m["type"] == "Capture":
+                    t = enemy.index(m["target"])
+                    tEnemy = enemy[:t] + enemy[t+1:]
+                    flag = checkCheck(tEnemy, turnPieces(False))
+                else:
+                    flag = checkCheck(enemy, turnPieces(False))
+                unit.x, unit.y = backup
+                if flag:
+                    toAdd.append(False)
+                else:
+                    toAdd.append(m)
+            out.append(toAdd)
+    if unit.moves(out, ["CMove", "Defend"]) == []:
+        unselectUnit()
+    return out
+
+def unselectUnit():
+    global unit, moveset
+    unit.highlighted = False
+    unit = None
+    moveset = None
+
+def capture(target):
+    toRemove = whites if not turnW else blacks
+    toRemove.remove(target)
 
 # Update
 def update():
     if pyxel.btnp(pyxel.MOUSE_LEFT_BUTTON):
-        global unit
-        global turnW
-        global moveset
-        global passantU
-        global check
-        global poss
-        global state
-        global promoted
+        global unit, turnW, moveset, passantU, check, poss, state, promoted
         if state == "Chess":
             # There is a piece selected
             if (unit != None and not check) or (check and poss.get(unit) != None):
@@ -71,16 +170,13 @@ def update():
                     or (check and flag)):
                     # Capture
                     if moveset[y][x]["type"] == "Capture":
-                        if turnW:
-                            blacks.remove(moveset[y][x]["target"])
-                        else:
-                            whites.remove(moveset[y][x]["target"])
+                        capture(moveset[y][x]["target"])
                     # Passant
                     elif moveset[y][x]["type"] == "Passant":
-                        if turnW:
-                            blacks.remove(moveset[y][x]["target"])
-                        else:
-                            whites.remove(moveset[y][x]["target"])
+                        capture(moveset[y][x]["target"])
+                    elif moveset[y][x]["type"] == "Castling":
+                        rook = moveset[y][x]["Rook"]
+                        rook.x, rook.y = utils.boardToCoord(*moveset[y][x]["RookTarget"])
                     # Pawn Moving
                     if isinstance(unit, Pieces.Pawn):
                         x2, y2 = utils.coordToBoard(unit.x,unit.y)
@@ -95,75 +191,35 @@ def update():
                         elif passantU != None and passantU.justMoved:
                             passantU.justMoved = False
                     unit.x, unit.y = utils.boardToCoord(x, y)
-                    unit.highlighted = not unit.highlighted
                     turnW = not turnW
                     unit.moved = True
-                    unit = None
-                    moveset = None
+                    unselectUnit()
 
-                    # Check
-                    check, danger = checkCheck(whites if not turnW else blacks, whites if turnW else blacks)
+                    check = checkCheck(turnPieces(True), turnPieces(False))
 
                     # Checkmate
                     if check:
-                        ally = deepcopy(whites) if turnW else deepcopy(blacks)
-                        enemy = deepcopy(whites) if not turnW else deepcopy(blacks)
-                        poss = {}
-                        for piece in ally:
-                            possibles = []
-                            x2, y2 = utils.coordToBoard(piece.x, piece.y)
-                            toAdd = piece.moves(piece.path(x2, y2, ally, enemy), ["Defend", "CMove"])
-                            for a in toAdd:
-                                possibles.append(a)
-                            for p in possibles:
-                                xi, yi = utils.coordToBoard(piece.x, piece.y)
-                                piece.x, piece.y = utils.boardToCoord(*p["pos"])
-                                if p["type"] == "Capture":
-                                    t = enemy.index(p["target"])
-                                    tEnemy = enemy[:t] + enemy[t+1:]
-                                    flag, _ = checkCheck(tEnemy, ally)
-                                else:
-                                    flag, _ = checkCheck(enemy, ally)
-                                if not flag:
-                                    pieceToAdd = whites[ally.index(piece)] if turnW else blacks[ally.index(piece)]
-                                    if poss.get(pieceToAdd) == None:
-                                        poss[pieceToAdd] = [p]
-                                    else:
-                                        poss[pieceToAdd].append(p)
-
-                                piece.x, piece.y = utils.boardToCoord(xi, yi)
-
-                        if len(poss) > 0:
-                            print("Check")
-                        else:
-                            print("Checkmate!")
-                            print("Black Won!" if turnW else "White Won!")
-                            raise SystemExit
+                        checkCheckmate()
                     
                 # Not a Valid Move
                 else:
-                    tmp = utils.mousePos(whites) if turnW else utils.mousePos(blacks)
+                    tmp = utils.mousePos(turnPieces(False))
                     # Selected same piece
                     if tmp == unit:
-                        unit.highlighted = not unit.highlighted
-                        unit = None
-                        moveset = None
+                        unselectUnit()
                     # Another piece selected
                     elif (tmp != None and not check) or (check and poss.get(tmp) != None):
                         unit.highlighted = not unit.highlighted
                         unit = tmp
                         unit.highlighted = not unit.highlighted
-                        moveset = unit.path(*utils.coordToBoard(unit.x, unit.y), whites if turnW else blacks, whites if not turnW else blacks)
-                        if isinstance(unit, Pieces.King):
-                            moveset = unit.forbid(moveset, whites if turnW else blacks, whites if not turnW else blacks)
+                        moveset = validateMoves(unit.path(*utils.coordToBoard(unit.x, unit.y), turnPieces(False), turnPieces(True)))
             # There is not
             else:
-                unit = utils.mousePos(whites) if turnW else utils.mousePos(blacks)
+                unit = utils.mousePos(turnPieces(False))
                 if (unit != None and not check) or (check and poss.get(unit) != None):
                     unit.highlighted = not unit.highlighted
-                    moveset = unit.path(*utils.coordToBoard(unit.x, unit.y), whites if turnW else blacks, whites if not turnW else blacks)
-                    if isinstance(unit, Pieces.King):
-                        moveset = unit.forbid(moveset, whites if turnW else blacks, whites if not turnW else blacks)
+                    moveset = unit.path(*utils.coordToBoard(unit.x, unit.y), turnPieces(False), turnPieces(True))
+                    moveset = validateMoves(moveset)
 
         elif state == "Promotion":
             x, y = utils.coordToBoard(pyxel.mouse_x, pyxel.mouse_y)
@@ -176,6 +232,11 @@ def update():
                             whites[promoted] = LAYOUT[i](whites[promoted].x, whites[promoted].y, True) 
                         promoted = None
                         state = "Chess"
+
+                        check = checkCheck(turnPieces(True), turnPieces(False))
+                        if check:
+                            checkCheckmate()
+
                         break
 # Draw
 def draw():
@@ -194,7 +255,7 @@ def draw():
             if not check:
                 if moveset != None and moveset[j][i] != False and moveset[j][i]["type"] == "Capture":
                     color = pyxel.COLOR_RED
-                if moveset != None and moveset[j][i] != False and moveset[j][i]["type"] == "Passant":
+                if moveset != None and moveset[j][i] != False and moveset[j][i]["type"] in ("Passant", "Castling"):
                     moves.append(moveset[j][i])
             pyxel.rect(i*TILESIZE+OFFSET, j*TILESIZE+OFFSET, TILESIZE, TILESIZE, color)
             if moveset != None and moveset[j][i] != False and "Move" in moveset[j][i]["type"] and not check:
@@ -205,9 +266,11 @@ def draw():
     # Special Moves
     if moves != []:
         for m in moves:
-            x, y = utils.boardToCoord(*m["pos"])
+            if m["type"] == "Passant":
+                x, y = utils.boardToCoord(*m["pos"])
+            else:
+                x, y = utils.boardToCoord(*m["KingTarget"])
             pyxel.rect(x+1, y+3, 6, 6, pyxel.COLOR_RED)
-
         
     # Check Moves
     if check:
@@ -223,9 +286,7 @@ def draw():
                         pyxel.rect(x-3, y-1, TILESIZE, TILESIZE, pyxel.COLOR_DARKBLUE)
 
     # Pieces
-    for piece in whites:
-        piece.draw()
-    for piece in blacks:
+    for piece in whites+blacks:
         piece.draw()
 
     # Turn

@@ -1,6 +1,10 @@
 import pyxel
 import utils
 
+"""
+Add passant as a check escape move
+"""
+
 class Piece():
     def __init__(self, x, y, white):
         self.v = 0 if white else 8
@@ -181,6 +185,8 @@ class King(Piece):
                 moveset[f["pos"][1]][f["pos"][0]] = False
 
         return moveset
+
+    
 
     def path(self, x, y, allyPieces, enemyPieces):
         return super().path(x, y, allyPieces, enemyPieces, ["Cardinal", "Diagonal", "Single"])
