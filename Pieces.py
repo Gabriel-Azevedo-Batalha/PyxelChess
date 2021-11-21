@@ -5,8 +5,11 @@ import utils
 Add passant as a check escape move
 """
 
+
+
 class Piece():
     def __init__(self, x, y, white):
+        pyxel.load("assets/assets.pyxres")
         self.v = 0 if white else 8
         self.x = x
         self.y = y
@@ -117,7 +120,7 @@ class Piece():
         return moves
 
     def draw(self):
-        pyxel.load("assets/assets.pyxres")
+        
         color = -1 if self.highlighted else pyxel.COLOR_YELLOW
         pyxel.blt(self.x, self.y, 0, self.v, self.u, 8, 12, color)
     

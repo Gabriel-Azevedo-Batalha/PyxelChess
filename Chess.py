@@ -11,9 +11,9 @@ class Chess():
         self.blacks = []
         self.capWhites = []
         self.capBlacks = []
-        self.LAYOUT = [Pieces.Rook, Pieces.Horse, Pieces.Bishop, 
+        self.LAYOUT = (Pieces.Rook, Pieces.Horse, Pieces.Bishop, 
                     Pieces.Queen, Pieces.King, Pieces.Bishop,
-                    Pieces.Horse, Pieces.Rook]
+                    Pieces.Horse, Pieces.Rook)
         for i in range(8):
             self.whites.append(Pieces.Pawn(*utils.boardToCoord(i, 6), True))
             self.whites.append(self.LAYOUT[i](*utils.boardToCoord(i, 7), True))
@@ -287,6 +287,7 @@ class Chess():
         pyxel.rectb(OFFSET-2, OFFSET-2, TILESIZE*8+4, TILESIZE*8+4, pyxel.COLOR_ORANGE)
         toggle = False
         moves = []
+
         for i in range(8):
             for j in range(8):
                 color = pyxel.COLOR_BROWN if toggle else pyxel.COLOR_PEACH
