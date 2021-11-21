@@ -61,7 +61,7 @@ class Piece():
         locked = [False]*8
         pieces = enemyPieces + allyPieces
         enemySize = len(enemyPieces)
-        while(distance < 6):
+        while(distance <= 7):
             possibles = self.positions(x, y , moves, distance)
             for l, pos in enumerate(possibles):
                 if pos == None or locked[l]:
@@ -117,7 +117,7 @@ class Piece():
         return moves
 
     def draw(self):
-        pyxel.load("assets.pyxres")
+        pyxel.load("assets/assets.pyxres")
         color = -1 if self.highlighted else pyxel.COLOR_YELLOW
         pyxel.blt(self.x, self.y, 0, self.v, self.u, 8, 12, color)
     

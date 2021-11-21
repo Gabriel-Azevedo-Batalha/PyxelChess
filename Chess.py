@@ -9,6 +9,8 @@ class Chess():
     def __init__(self):
         self.whites = []
         self.blacks = []
+        self.capWhites = []
+        self.capBlacks = []
         self.LAYOUT = [Pieces.Rook, Pieces.Horse, Pieces.Bishop, 
                     Pieces.Queen, Pieces.King, Pieces.Bishop,
                     Pieces.Horse, Pieces.Rook]
@@ -26,14 +28,14 @@ class Chess():
         self.check = False
         self.poss = None
 
-        # Macro
+        # Macros
         self.turnPieces = lambda inv: self.whites if (self.turnW and not inv) or (not self.turnW and inv) else self.blacks
 
     def checkCheck(self, enemyPieces, allyPieces):
         check = False
         for piece in enemyPieces:
-            x2, y2 = utils.coordToBoard(piece.x, piece.y)
-            toAdd = piece.moves(piece.path(x2, y2, enemyPieces, allyPieces), ["Defend", "Move", "CMove", "PMove"])
+            x, y = utils.coordToBoard(piece.x, piece.y)
+            toAdd = piece.moves(piece.path(x, y, enemyPieces, allyPieces), ["Defend", "Move", "CMove", "PMove"])
             for a in toAdd:
                 if isinstance(a["target"], Pieces.King):
                     check = True
@@ -55,12 +57,23 @@ class Chess():
                                         "King": king, "KingTarget" : (x+2*const, y)}
             if not king.moved:
                 lRook, rRook = None, None
+                lFlag, rFlag = True, True
                 for piece in allyPieces:
+                    x, y = utils.coordToBoard(piece.x, piece.y)
+                    _, ky = utils.coordToBoard(king.x, king.y)
+                    if y == ky and x in (1, 2, 3):
+                        lFlag = False
+                    elif y == ky and x in (5, 6):
+                        rFlag = False
                     if isinstance(piece, Pieces.Rook) and not piece.moved:
-                        if piece.x < king.x:
+                        if piece.x < king.x and lFlag:
                             lRook = piece
-                        else:
+                        elif rFlag:
                             rRook = piece
+                    if rRook != None and not rFlag:
+                        rRook = None
+                    elif lRook != None and not lFlag:
+                        lRook = None
                 if lRook != None:
                     rookLogic(lRook, -1)
                 if rRook != None:
@@ -95,14 +108,8 @@ class Chess():
 
                 piece.x, piece.y = utils.boardToCoord(xi, yi)
 
-        if len(self.poss) > 0:
-            print("Check")
-            return False
-        else:
-            print("Checkmate!")
-            print("Black Won!" if self.turnW else "White Won!")
-            #raise SystemExit
-            return True
+        if not len(self.poss) > 0:
+            self.state = "Checkmate"
 
     def validateMoves(self, moves):
         if isinstance(self.unit, Pieces.King):
@@ -139,8 +146,41 @@ class Chess():
         self.unit = None
         self.moveset = None
 
+    def checkStalemate(self):
+        for piece in self.turnPieces(False):
+            x, y = utils.coordToBoard(piece.x, piece.y)
+            self.unit = piece
+            moves = piece.moves(self.validateMoves(piece.path(x, y, self.turnPieces(False), self.turnPieces(True))), ["Defend"])
+            if len(moves) > 0:
+                self.unit = None
+                return
+        self.unit = None
+        self.state = "Stalemate"
     def capture(self, target):
+        self.addCapture(target)
         self.turnPieces(True).remove(target)
+
+    def addCapture(self, target):
+        caps = self.capWhites if self.turnW else self.capBlacks
+        caps.append(target)
+        new = []
+        def addType(t):
+            for piece in caps:
+                if isinstance(piece, t):
+                    new.append(piece)
+                    nX = 150 if self.turnW else 12
+                    nY = OFFSET + len(new)*13
+                    if len(new) > 8:
+                        nX += 10
+                        nY -= 8*12
+                    piece.x, piece.y = nX, nY
+        addType(Pieces.Pawn)
+        addType(Pieces.Horse)
+        addType(Pieces.Bishop)
+        addType(Pieces.Rook)
+        addType(Pieces.Queen)
+
+        caps = new
 
     # Update
     def update(self):
@@ -150,6 +190,8 @@ class Chess():
                 # There is a piece selected
                 if (self.unit != None and not self.check) or (self.check and self.poss.get(self.unit) != None):
                     x, y = utils.coordToBoard(pyxel.mouse_x, pyxel.mouse_y)
+                    if x > 7 or x < 0 or y > 7 or y < 0:
+                       return False
                     flag = False
                     if self.check:
                         for move in self.poss[self.unit]:
@@ -191,7 +233,9 @@ class Chess():
 
                         # Checkmate
                         if self.check:
-                            out = self.checkCheckmate()
+                            self.checkCheckmate()
+                        else:
+                            self.checkStalemate()
                         
                     # Not a Valid Move
                     else:
@@ -227,9 +271,12 @@ class Chess():
 
                             self.check = self.checkCheck(self.turnPieces(True), self.turnPieces(False))
                             if self.check:
-                                out = self.checkCheckmate()
+                                self.checkCheckmate()
                             break
-            return out
+            elif self.state in ("Checkmate", "Stalemate"):
+                return True
+
+            return False
     # Draw
     def draw(self):
         # Clear Screen
@@ -265,7 +312,8 @@ class Chess():
                 pyxel.rect(x+1, y+3, 6, 6, pyxel.COLOR_RED)
             
         # Check Moves
-        if self.check:
+        if self.check and self.state != "Checkmate":
+            pyxel.text(80, 15, "Check", pyxel.COLOR_RED)
             for piece in self.poss:
                 i, j =  utils.coordToBoard(piece.x, piece.y)
                 pyxel.rect(i*TILESIZE+OFFSET+1, j*TILESIZE+OFFSET+1, TILESIZE-2, TILESIZE-2, pyxel.COLOR_CYAN)
@@ -281,9 +329,11 @@ class Chess():
         for piece in self.whites+self.blacks:
             piece.draw()
 
-        # Turn
-        msg = "White's Turn" if self.turnW else "Black's Turn"
-        pyxel.text(65, 160, msg, pyxel.COLOR_WHITE)
+        # Captures
+        pyxel.rect(149, OFFSET+12, 20 ,8*12+10,  pyxel.COLOR_GRAY)
+        pyxel.rect(11, OFFSET+12, 20 ,8*12+10,  pyxel.COLOR_GRAY)
+        for piece in self.capWhites+self.capBlacks:
+            piece.draw()
 
         # Promotion Screen
         if self.state == "Promotion":
@@ -293,3 +343,19 @@ class Chess():
                 tmp.draw()
             pyxel.text(3*TILESIZE+OFFSET+2, 3*TILESIZE+OFFSET+1, "Choose", pyxel.COLOR_BLACK)
             pyxel.text(2*TILESIZE+OFFSET+10, 3*TILESIZE+OFFSET+7, "Promotion", pyxel.COLOR_BLACK)
+
+
+        # End Screen
+        if self.state in ("Checkmate", "Stalemate"):
+            msg = "Checkmate" if self.state == "Checkmate" else "Stalemate"
+            pyxel.text(73, 13, msg, pyxel.COLOR_RED)
+            if self.state == "Stalemate":
+                pyxel.text(84, 20, "Draw", pyxel.COLOR_CYAN)
+            else:    
+                msg = "White" if not self.turnW else "Black"
+                pyxel.text(71, 20, msg + " Wins", pyxel.COLOR_CYAN)
+            pyxel.text(55, 160, "Click to continue", pyxel.COLOR_WHITE)
+        # Turn
+        else:
+            msg = "White's Turn" if self.turnW else "Black's Turn"
+            pyxel.text(67, 160, msg, pyxel.COLOR_WHITE)
