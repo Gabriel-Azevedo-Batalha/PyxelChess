@@ -1,3 +1,3 @@
 # PyxelChess
 
-Xadrez no Pyxel (Tentativa)
+Pyxel Chess é uma implementação de Xadrez no Pyxel.

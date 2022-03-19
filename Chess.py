@@ -14,6 +14,7 @@ class Chess():
         self.LAYOUT = (Pieces.Rook, Pieces.Horse, Pieces.Bishop, 
                     Pieces.Queen, Pieces.King, Pieces.Bishop,
                     Pieces.Horse, Pieces.Rook)
+
         for i in range(8):
             self.whites.append(Pieces.Pawn(*utils.boardToCoord(i, 6), True))
             self.whites.append(self.LAYOUT[i](*utils.boardToCoord(i, 7), True))
