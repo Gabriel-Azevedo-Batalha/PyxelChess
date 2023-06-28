@@ -185,7 +185,7 @@ class Chess():
 
     # Update
     def update(self):
-        if pyxel.btnp(pyxel.MOUSE_LEFT_BUTTON):
+        if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             out = False
             if self.state == "Chess":
                 # There is a piece selected

@@ -5,7 +5,7 @@ class Menu():
         self.active = True
 
     def update(self):
-        if pyxel.btnp(pyxel.MOUSE_LEFT_BUTTON):
+        if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
             x, y = pyxel.mouse_x, pyxel.mouse_y
             if x >= 68 and x <= 114 and y >= 124 and y <= 140:
                 self.active = False

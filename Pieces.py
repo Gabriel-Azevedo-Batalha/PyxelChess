@@ -121,7 +121,7 @@ class Piece():
 
     def draw(self):
         
-        color = -1 if self.highlighted else pyxel.COLOR_YELLOW
+        color = None if self.highlighted else pyxel.COLOR_YELLOW
         pyxel.blt(self.x, self.y, 0, self.v, self.u, 8, 12, color)
     
 class Pawn(Piece):
